@@ -44,6 +44,7 @@ extraReq ctx = do
   x <- getHttps https "https://jsonplaceholder.typicode.com/todos/1" $ \res => do
         putStrLn res.statusCode
         onData res putStrLn
+        -- TODO somehow use this when responding to calls to /extraReq
   text "extraReq" ctx >>= status OK
 
 doStuff :
