@@ -16,6 +16,21 @@ import TyTTP.HTTP.Routing
 import TyTTP.URL
 import TyTTP.URL.Path
 
+%foreign """
+node:lambda: () => {
+  const { Pool, Client } = require('pg');
+  const pool = new Pool();
+  pool.query('SELECT NOW()', (err, res) => {
+    console.log(err, res)
+    pool.end()
+  })
+}
+"""
+ffi_require_pg : PrimIO ()
+
+requirePg : IO ()
+requirePg = primIO ffi_require_pg
+
 export
 data HTTPS : Type where [external]
 
@@ -85,7 +100,9 @@ routeDef folder =
           ]
 
 main : IO ()
-main = eitherT putStrLn pure $ do
+main = do
+  requirePg
+  eitherT putStrLn pure $ do
   Just folder <- currentDir
     | _ => putStrLn "There is no current folder"
 
