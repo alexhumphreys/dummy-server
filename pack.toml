@@ -1,0 +1,12 @@
+[custom.all.apache-mime-types]
+type = "github"
+url  = "https://github.com/kbertalan/idris2-apache-mime-types"
+commit = "main"
+ipkg = "apache-mime-types.ipkg"
+
+
+[custom.all.tyttp]
+type = "github"
+url  = "https://github.com/kbertalan/tyttp"
+commit = "main"
+ipkg = "tyttp.ipkg"
