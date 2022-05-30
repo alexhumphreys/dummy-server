@@ -23,4 +23,7 @@ FROM node:16
 
 WORKDIR /opt/dummy-server
 
+COPY --from=build /opt/dummy-server/package.* /opt/dummy-server
 COPY --from=build /opt/dummy-server/build/exec/dummy-server /opt/dummy-server
+
+RUN npm install
