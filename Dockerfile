@@ -2,7 +2,7 @@ FROM ubuntu:22.04 AS build
 
 RUN apt-get update && apt-get install --yes gcc make chezscheme libgmp3-dev git && rm -rf /var/lib/apt/lists/*
 
-ENV PATH="$HOME/.pack/bin:$HOME/.idris2/bin:$PATH"
+ENV PATH="~/.pack/bin:~/.idris2/bin:$PATH"
 
 WORKDIR /opt/idris2-pack
 
@@ -13,6 +13,6 @@ ENV SCHEME=chezscheme
 
 RUN make micropack SCHEME=chezscheme DB=nightly-220530
 
-WORKDIR /opt/dummy-server
+# WORKDIR /opt/dummy-server
 
-RUN pack --cg node build ./dummy-server.ipkg
+# RUN pack --cg node build ./dummy-server.ipkg
