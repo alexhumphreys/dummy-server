@@ -13,6 +13,6 @@ ENV SCHEME=chezscheme
 
 RUN make micropack SCHEME=chezscheme DB=nightly-220530
 
-# WORKDIR /opt/dummy-server
+WORKDIR /opt/dummy-server
 
-# RUN pack --cg node build ./dummy-server.ipkg
+RUN pack --cg node build ./dummy-server.ipkg
