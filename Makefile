@@ -8,6 +8,12 @@ install-node-deps:
 build:
 	pack --cg node build dummy-server.ipkg
 
+docker-build:
+	docker build -t snazzybucket/dummy-server .
+
+docker-run:
+	docker run --rm -it snazzybucket/dummy-server /bin/bash
+
 clean:
 	rm -rf ./build
 	rm -rf ./node_modules

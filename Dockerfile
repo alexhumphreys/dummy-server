@@ -15,7 +15,10 @@ RUN make micropack SCHEME=chezscheme DB=nightly-220530
 
 WORKDIR /opt/dummy-server
 
-COPY . .
+COPY Main.idr .
+COPY ./dummy-server.ipkg .
+COPY ./package.json .
+COPY ./package-lock.json .
 
 RUN pack --cg node build ./dummy-server.ipkg
 

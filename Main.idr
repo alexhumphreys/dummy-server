@@ -55,10 +55,10 @@ extraReq :
   -> io $ Context me u v h1 Status StringHeaders a (Publisher IO e Buffer)
 extraReq ctx = do
   putStrLn "extraReq"
-  https <- requireHTTPS
-  x <- getHttps https "https://jsonplaceholder.typicode.com/todos/1" $ \res => do
-        putStrLn res.statusCode
-        onData res putStrLn
+  -- https <- requireHTTPS
+  -- x <- getHttps https "https://jsonplaceholder.typicode.com/todos/1" $ \res => do
+        -- putStrLn res.statusCode
+        -- onData res putStrLn
         -- TODO somehow use this when responding to calls to /extraReq
   text "extraReq" ctx >>= status OK
 
@@ -108,9 +108,9 @@ main = do
 
   http <- HTTP.require
   https <- requireHTTPS
-  defer $ ignore $ getHttps https "https://jsonplaceholder.typicode.com/todos/1" $ \res => do
-        putStrLn res.statusCode
-        onData res putStrLn
+  -- defer $ ignore $ getHttps https "https://jsonplaceholder.typicode.com/todos/1" $ \res => do
+        -- putStrLn res.statusCode
+        -- onData res putStrLn
 
   ignore $ HTTP.listen' $ routeDef {io=IO} "\{folder}/"
 
