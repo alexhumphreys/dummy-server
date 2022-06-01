@@ -11,7 +11,8 @@ RUN true
 
 ENV SCHEME=chezscheme
 
-RUN make micropack SCHEME=chezscheme DB=nightly-220530
+ARG db
+RUN make micropack SCHEME=chezscheme DB=$db
 
 WORKDIR /opt/dummy-server
 

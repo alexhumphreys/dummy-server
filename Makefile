@@ -1,3 +1,5 @@
+PACK_DB="nightly-220530"
+
 repl:
 	rlwrap pack --with-ipkg dummy-server.ipkg --cg node repl Main.idr
 
@@ -9,7 +11,7 @@ build:
 	pack --cg node build dummy-server.ipkg
 
 docker-build:
-	docker build -t snazzybucket/dummy-server .
+	docker build --build-arg db=$(PACK_DB) -t snazzybucket/dummy-server .
 
 docker-run:
 	docker run --rm -it snazzybucket/dummy-server /bin/bash
