@@ -1,50 +1,47 @@
 module Main
 
-import Control.Monad.Trans
 import Data.Buffer
-import Data.Buffer.Ext
-import Node
+import Control.Monad.Trans
+import Control.Monad.Either
+import Control.Monad.Maybe
 import Node.HTTP.Client
 import Node.HTTP.Server
-import TyTTP.Adapter.Node.HTTP as HTTP
-import TyTTP.Core.Error
+import TyTTP.Adapter.Node.HTTP
+import TyTTP.Adapter.Node.URI
 import TyTTP.HTTP
-import TyTTP.HTTP.Combinators
-
-hReflect : Context Method String Version StringHeaders Status StringHeaders (Publisher IO NodeError Buffer) ()
-  -> IO $ Context Method String Version StringHeaders Status StringHeaders (Publisher IO NodeError Buffer) (Publisher IO NodeError Buffer)
-hReflect ctx = do
-  let m = ctx.request.method
-      h = ctx.request.headers
-      p : Publisher IO NodeError Buffer = MkPublisher $ \s => do
-        s.onNext $ fromString "method -> \{show m}"
-        s.onNext $ fromString "url -> \{ctx.request.url}"
-        s.onNext $ fromString "version -> \{show ctx.request.version}"
-        s.onNext "headers ->"
-        for_ h $ \v => s.onNext $ fromString "\t\{fst v} : \{snd v}"
-        s.onNext "body ->"
-        ctx.request.body.subscribe s
-  pure $ { response.body := p } ctx
+import TyTTP.HTTP.Consumer
+import TyTTP.HTTP.Producer
+import TyTTP.HTTP.Routing
+import TyTTP.URL
+import TyTTP.URL.Path
+import TyTTP.URL.Search
 
 main : IO ()
 main = do
-  http <- require
-  server <- HTTP.listen' { e = NodeError } :> hReflect
+  http <- HTTP.require
+  ignore $ HTTP.listen' {e = String} $
+      decodeUri' (text "URI decode has failed" >=> status BAD_REQUEST)
+      :> parseUrl' (const $ text "URL has invalid format" >=> status BAD_REQUEST)
+      :> routes' (text "Resource could not be found" >=> status NOT_FOUND)
+          [ get $ path "/query" $ \ctx =>
+              text ctx.request.url.search ctx >>= status OK
+          , get $ path "/parsed" $ Simple.search $ \ctx =>
+              text (show ctx.request.url.search) ctx >>= status OK
+          , get $ path "/request" :> \ctx => do
+              putStrLn "Calling http"
+              res <- MkPromise $ \cb =>
+                ignore $ http.get "http://localhost:3000/parsed?q=from-request" cb.onSucceded
 
-  defer $ do
-    ignore $ http.get "http://localhost:3000" $ \res => do
-      putStrLn "GET"
-      putStrLn $ show res.statusCode
-      onData res putStrLn
-
-  defer $ do
-    clientReq <- http.post "http://localhost:3000/the/resource" $ \res => do
-      putStrLn "POST"
-      putStrLn $ show res.statusCode
-      onData res putStrLn
-      server.close
-
-    clientReq.write "Hello World!"
-    clientReq.write "With more chunks"
-    clientReq.end
-
+              if res.statusCode == 200
+                then
+                  pure $
+                    { response.status := OK
+                    , response.headers := [("Content-Type", "text/plain")]
+                    , response.body := MkPublisher $ \s => do
+                        onData res s.onNext
+                        onEnd res s.onSucceded
+                        onError res s.onFailed
+                    } ctx
+                else
+                  text "HTTP call failed with status code \{show res.statusCode}" ctx >>= status INTERNAL_SERVER_ERROR
+          ]
