@@ -76,7 +76,8 @@ main = do
           , get $ path "/db" :> \ctx => do
               putStrLn "querying db"
               let cs = getCountries pool
-              transform cs
+              x <- transform cs
+              pure x
               -- text (show ctx.request.url.search) ctx >>= status OK
           , get $ path "/request" :> \ctx => do
               putStrLn "Calling http"
