@@ -1,89 +1,50 @@
 module Main
 
-import Data.Buffer
-import Control.Monad.Either
-import Control.Monad.Maybe
 import Control.Monad.Trans
-import Node.HTTP.Server
-import Node.HTTP.Client
+import Data.Buffer
+import Data.Buffer.Ext
 import Node
-import System.Directory
-import TyTTP.Adapter.Node.HTTP
-import TyTTP.Adapter.Node.Static
+import Node.HTTP.Client
+import Node.HTTP.Server
+import TyTTP.Adapter.Node.HTTP as HTTP
+import TyTTP.Core.Error
 import TyTTP.HTTP
-import TyTTP.HTTP.Producer
-import TyTTP.HTTP.Routing
-import TyTTP.URL
-import TyTTP.URL.Path
-import HTTPS
+import TyTTP.HTTP.Combinators
 
-extraReq :
-  Error e
-  => HasIO io
-  => Context me u v h1 s StringHeaders a b
-  -> io $ Context me u v h1 Status StringHeaders a (Publisher IO e Buffer)
-extraReq ctx = do
-  putStrLn "extraReq"
-  https <- requireHTTPS
-  x <- getHttps https "https://jsonplaceholder.typicode.com/todos/1" $ \res => do
-        putStrLn $ show res.statusCode
-        onData res putStrLn
-        -- TODO somehow use this when responding to calls to /extraReq
-  text "extraReq" ctx >>= status OK
-
-doStuff :
-  Error e
-  => HasIO io
-  => Context me u v h1 s StringHeaders a b
-  -> io $ Context me u v h1 Status StringHeaders a (Publisher IO e Buffer)
-doStuff ctx = do
-  putStrLn "doStuff"
-  text "foo" ctx >>= status OK
-
-sendError :
-  Error e
-  => HasIO io
-  => Status
-  -> String
-  -> Context me u v h1 s StringHeaders a b
-  -> io $ Context me u v h1 Status StringHeaders a (Publisher IO e Buffer)
-sendError st str ctx = do
-  putStrLn "hello"
-  text str ctx >>= status st
-
-routeDef : Error e
-  => HasIO io
-  => String
-  -> StaticRequest e String
-  -> Promise e io $ StaticResponse e String
-routeDef folder =
-    let routingError = sendError NOT_FOUND "Resource could not be found"
-        urlError = \err => sendError BAD_REQUEST "URL has invalid format"
-    in
-      parseUrl' urlError :>
-        routes' routingError
-          [ get $ TyTTP.URL.Path.path "/query" $ \ctx =>
-                doStuff ctx
-          , get $ TyTTP.URL.Path.path "/extraReq" $ \ctx =>
-                extraReq ctx
-          ]
+hReflect : Context Method String Version StringHeaders Status StringHeaders (Publisher IO NodeError Buffer) ()
+  -> IO $ Context Method String Version StringHeaders Status StringHeaders (Publisher IO NodeError Buffer) (Publisher IO NodeError Buffer)
+hReflect ctx = do
+  let m = ctx.request.method
+      h = ctx.request.headers
+      p : Publisher IO NodeError Buffer = MkPublisher $ \s => do
+        s.onNext $ fromString "method -> \{show m}"
+        s.onNext $ fromString "url -> \{ctx.request.url}"
+        s.onNext $ fromString "version -> \{show ctx.request.version}"
+        s.onNext "headers ->"
+        for_ h $ \v => s.onNext $ fromString "\t\{fst v} : \{snd v}"
+        s.onNext "body ->"
+        ctx.request.body.subscribe s
+  pure $ { response.body := p } ctx
 
 main : IO ()
 main = do
-  eitherT putStrLn pure $ do
-  Just folder <- currentDir
-    | _ => putStrLn "There is no current folder"
+  http <- require
+  server <- HTTP.listen' { e = NodeError } :> hReflect
 
-  http <- HTTP.require
-  https <- requireHTTPS
-  -- defer $ ignore $ getHttps https "https://jsonplaceholder.typicode.com/todos/1" $ \res => do
-        -- putStrLn res.statusCode
-        -- onData res putStrLn
+  defer $ do
+    ignore $ http.get "http://localhost:3000" $ \res => do
+      putStrLn "GET"
+      putStrLn $ show res.statusCode
+      onData res putStrLn
 
-  ignore $ HTTP.listen' $ routeDef {io=IO} "\{folder}/"
+  defer $ do
+    clientReq <- http.post "http://localhost:3000/the/resource" $ \res => do
+      putStrLn "POST"
+      putStrLn $ show res.statusCode
+      onData res putStrLn
+      server.close
 
-  -- defer $ ignore $ http.get "http://localhost:3000/query" $ \res => do
-      -- putStrLn res.statusCode
-      -- onData res putStrLn
-      -- server.close
+    clientReq.write "Hello World!"
+    clientReq.write "With more chunks"
+    clientReq.end
 
