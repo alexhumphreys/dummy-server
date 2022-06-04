@@ -16,18 +16,10 @@ import TyTTP.URL
 import TyTTP.URL.Path
 import TyTTP.URL.Search
 
-import Postgres
-import Promise
-import Util
+import PG.Postgres
+import PG.Promise
+import PG.Util
 import Debug.Trace
-
-%foreign (promisifyPrim "(_,err)=>new Promise((resolve,reject)=>reject(err))")
-reject__prim : String -> promise a
-
-export
-reject : String -> Promise a
-reject err =
-  promisify (reject__prim err)
 
 data Country =
   MkCountry String Nat
@@ -43,7 +35,7 @@ tryCountry : Maybe (us ** Table us) -> Maybe (List Country)
 tryCountry Nothing = Nothing
 tryCountry (Just (MkDPair fst snd)) = traverse (countryFromRow fst) snd
 
-getCountries : Pool -> Promise (List Country)
+getCountries : Pool -> PG.Promise.Promise String IO (List Country)
 getCountries pool = do
   b <- query pool "SELECT country,total FROM board"
   countries <- lift $ getAll b
@@ -52,7 +44,7 @@ getCountries pool = do
        Nothing => reject "Error: got Nothing"
        (Just cs) => pure $ trace (show cs) cs
 
-transform : Promise.Promise a -> Promise String IO a
+transform : PG.Promise.Promise e m a -> Core.Promise.Promise e m a
 transform x = MkPromise $ \cb => do
   resolve x
     (\a => cb.onSucceded a)
