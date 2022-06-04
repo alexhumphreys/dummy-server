@@ -19,6 +19,7 @@ import TyTTP.URL.Search
 import Postgres
 import Promise
 import Util
+import Debug.Trace
 
 %foreign (promisifyPrim "(_,err)=>new Promise((resolve,reject)=>reject(err))")
 reject__prim : String -> promise a
@@ -49,27 +50,16 @@ getCountries pool = do
   ls <- lift $ tryCountry countries
   case ls of
        Nothing => reject "Error: got Nothing"
-       (Just cs) => pure cs
+       (Just cs) => pure $ trace (show cs) cs
 
 -- doQuery : HasIO io => Pool -> String -> (IncomingMessage -> IO ()) -> io ClientRequest
 
-transform : Promise.Promise a -> (Callbacks String IO a -> ())
+transform : Promise.Promise (List Country) -> Promise String IO b
+transform x = MkPromise $ \cb => do
+  resolve x
+    (\a => ?successCase)
+    (\e => ?errorCase)
 
-returnWithDB : Context Method (URL String Path String) Version (List (String, String)) Status (List (String, String)) (Publisher IO NodeError Buffer) ()
-  -> Promise (List Country)
-  -> Lazy (Promise String IO (Context Method (URL String Path String) Version (List (String, String)) Status (List (String, String)) (Publisher IO NodeError Buffer) (Publisher IO NodeError Buffer)))
-returnWithDB ctx@(MkContext request response) prom = do
-  putStrLn "hello"
-  ?returnWithDB_rhs_0
-  pure $
-    { response.status := OK
-    , response.headers := [("Content-Type", "text/plain")]
-    , response.body := MkPublisher $ \s => do
-        let x = MkPromise $ \cb =>
-                case cb of
-                     (MkCallbacks onSucceded onFailed) => ?kj_0 -- MkCallbacks (\a => ?foo) (\e => ?bar)
-        pure ()
-    } ctx
 
 main : IO ()
 main = do
@@ -86,14 +76,12 @@ main = do
           , get $ path "/db" :> \ctx => do
               putStrLn "querying db"
               let cs = getCountries pool
-              -- b <- query pool "SELECT country,total FROM board"
-              returnWithDB ctx cs
+              transform cs
+              -- text (show ctx.request.url.search) ctx >>= status OK
           , get $ path "/request" :> \ctx => do
               putStrLn "Calling http"
-              res <- MkPromise $ -- \cb =>
-                                       ?kjkaa
-                -- ignore $ http.get "http://localhost:3000/parsed?q=from-request" cb.onSucceded
-              ?kjk
+              res <- MkPromise $ \cb =>
+                ignore $ http.get "http://localhost:3000/parsed?q=from-request" cb.onSucceded
               if res.statusCode == 200
                 then
                   pure $
