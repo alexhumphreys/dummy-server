@@ -5,6 +5,11 @@ Test to see if I can make a server that:
 - [x] logs to STDOUT
 - [x] uses `pack` for dependencies
 - [ ] publishes a docker image
-- [ ] makes requests to other services before responding to requests
-- [ ] calls some node function provided by an external library
-- [ ] connects to a DB
+- [x] makes requests to other services before responding to requests
+- [x] calls some node function provided by an external library
+- [x] connects to a DB
+- [ ] logs errors usefully
+- [ ] parse nested routes
+- [ ] accept JSON
+- [ ] parse JSON and insert something in DB
+- [ ] respond with JSON for a value looked up in the DB
