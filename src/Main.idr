@@ -54,12 +54,11 @@ getCountries pool = do
 
 -- doQuery : HasIO io => Pool -> String -> (IncomingMessage -> IO ()) -> io ClientRequest
 
-transform : Promise.Promise (List Country) -> Promise String IO b
+transform : Promise.Promise (List Country) -> Promise String IO (List Country)
 transform x = MkPromise $ \cb => do
   resolve x
-    (\a => ?successCase)
-    (\e => ?errorCase)
-
+    (\a => cb.onSucceded a)
+    (\e => cb.onFailed e)
 
 main : IO ()
 main = do
@@ -77,8 +76,7 @@ main = do
               putStrLn "querying db"
               let cs = getCountries pool
               x <- transform cs
-              pure x
-              -- text (show ctx.request.url.search) ctx >>= status OK
+              text (show x) ctx >>= status OK
           , get $ path "/request" :> \ctx => do
               putStrLn "Calling http"
               res <- MkPromise $ \cb =>
