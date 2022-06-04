@@ -15,38 +15,7 @@ import TyTTP.HTTP.Producer
 import TyTTP.HTTP.Routing
 import TyTTP.URL
 import TyTTP.URL.Path
-
-%foreign """
-node:lambda: () => {
-  const { Pool, Client } = require('pg');
-  const pool = new Pool();
-  pool.query('SELECT NOW()', (err, res) => {
-    console.log(err, res)
-    pool.end()
-  })
-}
-"""
-ffi_require_pg : PrimIO ()
-
-requirePg : IO ()
-requirePg = primIO ffi_require_pg
-
-export
-data HTTPS : Type where [external]
-
-%foreign "node:lambda: () => require('https')"
-ffi_require : () -> PrimIO HTTPS
-
-export
-requireHTTPS : HasIO io => io HTTPS
-requireHTTPS = primIO $ ffi_require ()
-
-%foreign "node:lambda: (https, url, cb) => https.get(url, (res) => { cb(res)() })"
-ffi_gethttps : HTTPS -> String -> (Node.HTTP.Client.IncomingMessage -> PrimIO ()) -> PrimIO ClientRequest
-
-export
-getHttps : HasIO io => HTTPS -> String -> (Node.HTTP.Client.IncomingMessage -> IO ()) -> io ClientRequest
-getHttps https url cb = primIO $ ffi_gethttps https url $ \res => toPrim $ cb res
+import HTTPS
 
 extraReq :
   Error e
@@ -101,7 +70,6 @@ routeDef folder =
 
 main : IO ()
 main = do
-  requirePg
   eitherT putStrLn pure $ do
   Just folder <- currentDir
     | _ => putStrLn "There is no current folder"
