@@ -1,4 +1,4 @@
-PACK_DB="nightly-220530"
+PACK_DB="nightly-220604"
 
 repl:
 	rlwrap pack --with-ipkg dummy-server.ipkg --cg node repl Main.idr

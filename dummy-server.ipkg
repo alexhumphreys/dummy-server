@@ -13,7 +13,7 @@ package dummy-server
 -- langversion
 
 -- packages to add to search path
-depends = tyttp, apache-mime-types
+depends = tyttp, apache-mime-types, idris2-node-postgres
 
 -- modules to install
 modules = Main

@@ -1,12 +1,8 @@
-[custom.all.apache-mime-types]
-type = "github"
-url  = "https://github.com/kbertalan/idris2-apache-mime-types"
-commit = "main"
-ipkg = "apache-mime-types.ipkg"
+collection = "nightly-220604"
 
-
-[custom.all.tyttp]
+[custom.all.idris2-node-postgres]
 type = "github"
-url  = "https://github.com/kbertalan/tyttp"
+url  = "https://github.com/alexhumphreys/idris2-node-postgres"
 commit = "main"
-ipkg = "tyttp.ipkg"
+ipkg = "idris2-node-postgres.ipkg"
+
