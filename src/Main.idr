@@ -52,9 +52,7 @@ getCountries pool = do
        Nothing => reject "Error: got Nothing"
        (Just cs) => pure $ trace (show cs) cs
 
--- doQuery : HasIO io => Pool -> String -> (IncomingMessage -> IO ()) -> io ClientRequest
-
-transform : Promise.Promise (List Country) -> Promise String IO (List Country)
+transform : Promise.Promise a -> Promise String IO a
 transform x = MkPromise $ \cb => do
   resolve x
     (\a => cb.onSucceded a)
