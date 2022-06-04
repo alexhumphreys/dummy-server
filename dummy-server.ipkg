@@ -24,7 +24,7 @@ main = Main
 -- name of executable
 executable = dummy-server
 opts = "--cg node"
-sourcedir = "./"
+sourcedir = "./src"
 -- builddir =
 -- outputdir =
 

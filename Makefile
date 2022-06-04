@@ -1,7 +1,7 @@
 PACK_DB="nightly-220604"
 
 repl:
-	rlwrap pack --with-ipkg dummy-server.ipkg --cg node repl Main.idr
+	rlwrap pack --with-ipkg dummy-server.ipkg --cg node repl src/Main.idr
 
 install-node-deps:
 	npm install
