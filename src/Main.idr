@@ -78,7 +78,7 @@ insertFoo pool foo = do
 
 getFoos : FromString e => Pool -> PG.Promise.Promise e IO (List Foo)
 getFoos pool = do
-  b <- query pool "SELECT bar,baz FROM board"
+  b <- query pool "SELECT bar,baz FROM foo"
   foos <- lift $ getAll b
   ls <- lift $ tryFoo foos
   case ls of
