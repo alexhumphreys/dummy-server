@@ -13,7 +13,15 @@ package dummy-server
 -- langversion
 
 -- packages to add to search path
-depends = tyttp, apache-mime-types, idris2-node-postgres
+depends = contrib
+  , tyttp
+  , elab-util
+  , sop
+  , json
+  , tyttp-json
+  , apache-mime-types
+  , idris2-node-postgres
+
 
 -- modules to install
 modules = Main
