@@ -125,7 +125,6 @@ main = eitherT putStrLn pure $ do
           , post
               $ TyTTP.URL.Path.path "/foo"
               $ consumes' [JSON]
-                  { a = Foo }
                   (\ctx => text "Content cannot be parsed: \{ctx.request.body}" ctx >>= status BAD_REQUEST)
               $ \ctx => do
                 let foo = ctx.request.body

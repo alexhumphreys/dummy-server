@@ -16,7 +16,7 @@ RUN make micropack SCHEME=chezscheme DB=$db
 
 WORKDIR /opt/dummy-server
 
-COPY Main.idr .
+ADD src src
 COPY ./dummy-server.ipkg .
 COPY ./package.json .
 COPY ./package-lock.json .
