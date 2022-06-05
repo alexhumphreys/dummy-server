@@ -145,7 +145,7 @@ main = eitherT putStrLn pure $ do
               x <- transform cs
               text (show x) ctx >>= status OK
           , post
-              $ TyTTP.URL.Path.path "/json"
+              $ TyTTP.URL.Path.path "/foo"
               $ consumes' [JSON]
                   { a = Foo }
                   (\ctx => text "Content cannot be parsed: \{ctx.request.body}" ctx >>= status BAD_REQUEST)
