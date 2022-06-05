@@ -100,31 +100,9 @@ transform x = MkPromise $ \cb => do
     (\a => cb.onSucceded a)
     (\e => cb.onFailed e)
 
-%foreign """
-node:lambda: () => {
-  const { Pool, Client } = require('pg')
-  // pools will use environment variables
-  // for connection information
-  const pool = new Pool({
-    user: 'postgres',
-    host: '127.0.0.1',
-    database: 'foo',
-    password: 'mysecretpassword',
-    port: 5432,
-  })
-  return pool
-}
-"""
-prim__get_pool' : PrimIO Pool
-
--- for querying
-export
-getPool' : HasIO io => io Pool
-getPool' = primIO $ prim__get_pool'
-
 main : IO ()
 main = eitherT putStrLn pure $ do
-  pool <- getPool'
+  pool <- getPool
   http <- HTTP.require
   ignore $ HTTP.listen' {e = NodeError} $
       decodeUri' (text "URI decode has failed" >=> status BAD_REQUEST)
