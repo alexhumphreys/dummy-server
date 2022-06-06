@@ -12,6 +12,7 @@ import TyTTP.Adapter.Node.URI
 import TyTTP.HTTP
 import TyTTP.HTTP.Consumer
 import TyTTP.HTTP.Consumer.JSON
+import TyTTP.HTTP.Producer.JSON
 import TyTTP.HTTP.Producer
 import TyTTP.HTTP.Routing
 import TyTTP.URL
@@ -26,20 +27,6 @@ import Debug.Trace
 import Data.List.Quantifiers
 import Generics.Derive
 import JSON
-
-json :
-  Applicative m
-  => String
-  -> Context me u v h1 s StringHeaders a b
-  -> m $ Context me u v h1 s StringHeaders a (Publisher IO e Buffer)
-json str ctx = do
-  let stream : Publisher IO e Buffer = Stream.singleton $ fromString str
-  pure $ { response.body := stream
-         , response.headers :=
-           [ ("Content-Type", "application/json")
-           , ("Content-Length", show $ length str)
-           ]
-         } ctx
 
 %foreign """
 node:lambda: (str) => { return {message: str, code: str, stack:""} }
@@ -136,7 +123,7 @@ main = eitherT putStrLn pure $ do
               putStrLn "querying foo from db"
               let cs = getFoos pool
               x <- transform cs
-              json (encode $ x) ctx >>= status OK
+              json (x) ctx >>= status OK
           , post
               $ TyTTP.URL.Path.path "/foo"
               $ consumes' [JSON]
