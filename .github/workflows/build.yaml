@@ -23,6 +23,10 @@ jobs:
           repository: stefan-hoeck/idris2-pack
           path: idris2-pack
           ref: 'main'
+      - name: Cache Docker
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        # Ignore the failure of a step and avoid terminating the job.
+        continue-on-error: true
       - name: build
         run: |
           docker build . -t snazzybucket/dummy-server
