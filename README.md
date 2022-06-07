@@ -10,6 +10,6 @@ Test to see if I can make a server that:
 - [x] connects to a DB
 - [ ] logs errors usefully
 - [ ] parse nested routes
-- [ ] accept JSON
-- [ ] parse JSON and insert something in DB
-- [ ] respond with JSON for a value looked up in the DB
+- [x] accept JSON
+- [x] parse JSON and insert something in DB
+- [x] respond with JSON for a value looked up in the DB
