@@ -102,11 +102,28 @@ transform x = MkPromise $ \cb => do
     (\a => cb.onSucceded a)
     (\e => cb.onFailed e)
 
+options : Error e => Options e
+options = MkOptions
+  { serverOptions = HTTP.Server.defaultOptions
+  , listenOptions =
+    { port := Just 3000
+    , host := Just "0.0.0.0"
+    } Listen.defaultOptions
+  , errorHandler = \e => MkResponse
+    { status = INTERNAL_SERVER_ERROR
+    , headers =
+      [ ("Content-Type", "text/plain")
+      , ("Content-Length", show $ length $ message e)
+      ]
+    , body = singleton $ fromString $ message e
+    }
+  }
+
 main : IO ()
 main = eitherT putStrLn pure $ do
   pool <- getPool
   http <- HTTP.require
-  ignore $ HTTP.listen' {e = NodeError} $
+  ignore $ HTTP.listen {e = NodeError} http options $
       decodeUri' (text "URI decode has failed" >=> status BAD_REQUEST)
       :> parseUrl' (const $ text "URL has invalid format" >=> status BAD_REQUEST)
       :> routes' (text "Resource could not be found" >=> status NOT_FOUND)

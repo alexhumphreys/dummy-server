@@ -1,4 +1,4 @@
-PACK_DB="nightly-220604"
+PACK_DB="nightly-220607"
 
 repl:
 	rlwrap pack --with-ipkg dummy-server.ipkg --cg node repl src/Main.idr
@@ -16,6 +16,11 @@ docker-build:
 docker-run:
 	docker run --rm -it snazzybucket/dummy-server /bin/bash
 
+docker-compose-restart:
+	docker compose down
+	docker compose build
+	docker compose up
+
 clean:
 	rm -rf ./build
 	rm -rf ./node_modules
@@ -30,6 +35,6 @@ run:
 	PGUSER=postgres \
 	PGHOST=127.0.0.1 \
 	PGPASSWORD=mysecretpassword \
-	PGDATABASE=postgres \
+	PGDATABASE=foo \
 	PGPORT=5432 \
 	node ./build/exec/dummy-server

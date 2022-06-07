@@ -1,5 +1,7 @@
+collection = "nightly-220607"
+
 [custom.all.idris2-node-postgres]
 type = "github"
 url  = "https://github.com/alexhumphreys/idris2-node-postgres"
-commit = "173d8b6"
+commit = "173d8b6148f639570a9c77f22355e72535ea15f6"
 ipkg = "idris2-node-postgres.ipkg"
