@@ -1,10 +1,13 @@
-FROM ghcr.io/stefan-hoeck/idris2-pack:nightly-220607 as build
+FROM ghcr.io/stefan-hoeck/idris2-pack:nightly-220609 as build
 
 WORKDIR /opt/dummy-server
 
-COPY src src
-COPY ./dummy-server.ipkg .
 COPY ./pack.toml .
+COPY ./dummy-server.ipkg .
+
+RUN pack install-deps ./dummy-server.ipkg
+
+COPY src src
 COPY ./package.json .
 COPY ./package-lock.json .
 

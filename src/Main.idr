@@ -109,13 +109,15 @@ options = MkOptions
     { port := Just 3000
     , host := Just "0.0.0.0"
     } Listen.defaultOptions
-  , errorHandler = \e => MkResponse
+  , errorHandler = \e =>
+    let body = trace (message e) "Sorry, an error has occurred" in
+    MkResponse
     { status = INTERNAL_SERVER_ERROR
     , headers =
       [ ("Content-Type", "text/plain")
-      , ("Content-Length", show $ length $ message e)
+      , ("Content-Length", show $ length $ body)
       ]
-    , body = singleton $ fromString $ message e
+    , body = singleton $ fromString $ body
     }
   }
 
