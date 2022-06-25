@@ -31,7 +31,7 @@ main = Main
 -- name of executable
 executable = "frontend.js"
 opts = "--cg javascript"
-sourcedir = "./src/Frontend"
+sourcedir = "./"
 -- builddir =
 -- outputdir =
 

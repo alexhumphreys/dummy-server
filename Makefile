@@ -39,7 +39,10 @@ run:
 	PGPORT=5432 \
 	node ./build/exec/dummy-server
 
+frontend-repl:
+	rlwrap -n pack --with-ipkg ./src/Frontend/frontend.ipkg --cg javascript repl ./src/Frontend/Main.idr
+
 frontend:
-	pack build frontend.ipkg
+	pack build ./src/Frontend/frontend.ipkg
 	mkdir -p static/js
-	cp build/exec/frontend.js static/js/frontend.js
+	cp ./src/Frontend/build/exec/frontend.js static/js/frontend.js
