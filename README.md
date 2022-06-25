@@ -13,3 +13,5 @@ Test to see if I can make a server that:
 - [x] accept JSON
 - [x] parse JSON and insert something in DB
 - [x] respond with JSON for a value looked up in the DB
+- [ ] single page web app...
+- [ ] ... that makes api calls to the backend

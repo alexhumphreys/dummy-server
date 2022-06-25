@@ -38,3 +38,8 @@ run:
 	PGDATABASE=foo \
 	PGPORT=5432 \
 	node ./build/exec/dummy-server
+
+frontend:
+	pack build frontend.ipkg
+	mkdir -p static/js
+	cp build/exec/frontend.js static/js/frontend.js
