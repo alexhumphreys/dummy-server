@@ -21,6 +21,7 @@ depends = base >= 0.5.1
   , sop
   , tailrec
   , rhone-js
+  , json
 
 -- modules to install
 modules = Main

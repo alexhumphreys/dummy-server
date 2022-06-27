@@ -3,8 +3,32 @@ import Data.List1
 import Data.String
 import Data.MSF.Switch
 import Text.CSS
+import Generics.Derive
+import JSON
 
 %default total
+
+{-
+{
+	"0": {
+		"userId": 1,
+		"id": 1,
+		"title": "delectus aut autem",
+		"completed": false
+	}
+}
+-}
+
+%language ElabReflection
+
+record Todo where
+  constructor MkTodo
+  userId : Nat
+  id : Nat
+  title : String
+  completed : Bool
+
+%runElab derive "Todo" [Generic, Meta, Show, Eq, RecordToJSON, RecordFromJSON]
 
 -- I set a timeout once the request has been received to make
 -- it clearer how the UI behaves until then.
@@ -52,7 +76,7 @@ btn = Id Button "my_button"
 |||
 ||| In addition, we define an `Init` event, which is fired after
 ||| the UI has been setup. This will start the ajax request.
-data Ev = Ajax (List1 String) | Click | Init
+data Ev = Ajax (Todo) | Click | Init
 
 content : Node Ev
 content =
@@ -78,21 +102,26 @@ M = DomIO Ev JSIO
 msf : (String -> JSIO ()) -> MSF M Ev ()
 msf get = switchE (arrM waitForAjax) doCycle >>> innerHtml out
 
-  where waitForAjax : Ev -> M (Either (List1 String) String)
+  where waitForAjax : Ev -> M (Either (Todo) String)
         waitForAjax Click     = pure $ Right "No data loaded yet!"
         waitForAjax Init      = fetch get $> Right "Request sent."
         waitForAjax (Ajax ss) = pure $ Left ss
 
-        doCycle : List1 String -> MSF M Ev String
-        doCycle (h ::: t) =
-          cycle (h :: t) >>> iPre "Data loaded!"
+        doCycle : Todo -> MSF M Ev String
+        doCycle t = const (title t) >>> iPre "Data loaded!"
+
+parseResponse : String -> Todo
+parseResponse str =
+  case decode {a=Todo} str of
+       (Left x) => MkTodo 0 0 "failed to parse: \{str}" False
+       (Right x) => x
 
 ui : M (MSF M Ev (), JSIO ())
 ui = do
   innerHtmlAt contentDiv content
   h <- handler <$> env
 
-  pure(msf $ \s => h (Ajax $ split (',' ==) s), pure ())
+  pure(msf $ \s => h (Ajax $ parseResponse s), pure ())
 
 main : IO ()
 main = runJS . ignore $ reactimateDomIni Init "somePrefix" ui
