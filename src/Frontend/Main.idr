@@ -1,4 +1,3 @@
-
 import Rhone.JS
 import Data.List1
 import Data.String
@@ -7,25 +6,21 @@ import Text.CSS
 
 %default total
 
--- wait n milliseconds before running the given action
+-- I set a timeout once the request has been received to make
+-- it clearer how the UI behaves until then.
 %foreign """
 browser:lambda:(h,w,x,y)=>{
   fetch('https://jsonplaceholder.typicode.com/todos/1')
     .then(response => response.json())
     .then(json => {
-      console.log('h: ' + h);
-      console.log('w: ' + w);
-      console.log( + x);
-      console.log('y: ' + y);
-      console.log('json: ' + json);
-      h([JSON.stringify(json)]);
+      setTimeout(() => {h(JSON.stringify(json))(w);}, 5000);
     })
 }
 """
-prim__fetch : (x -> JSIO ()) -> PrimIO ()
+prim__fetch : (String -> IO ()) -> PrimIO ()
 
-fetch : HasIO io => (x -> JSIO ()) -> io ()
-fetch run = primIO $ prim__fetch (run)
+fetch : HasIO io => (String -> JSIO ()) -> io ()
+fetch run = primIO $ prim__fetch (runJS . run)
 
 -- wait n milliseconds before running the given action
 %foreign "browser:lambda:(n,h,w)=>setTimeout(() => h(w),n)"
@@ -54,7 +49,10 @@ btn = Id Button "my_button"
 ||| The type of events our UI fires.
 ||| This is either some data we get back from an ajax call
 ||| or the click of a button.
-data Ev = Ajax (List1 String) | Click
+|||
+||| In addition, we define an `Init` event, which is fired after
+||| the UI has been setup. This will start the ajax request.
+data Ev = Ajax (List1 String) | Click | Init
 
 content : Node Ev
 content =
@@ -77,27 +75,14 @@ allRules = fastUnlines . map Text.CSS.Render.render
 M : Type -> Type
 M = DomIO Ev JSIO
 
--- We use an event switch to properly start our application
--- once the data from the ajax call has been loaded.
---
--- `switchE` switches only once, when its first argument
--- fires a `Left` event. In our case, this will be the
--- `List1` returned from the ajax call.
--- In case of a button click, we just inform our users, that
--- the data has not been loaded yet. We could also just disable
--- the button and enable it, once we got the ajax data.
-msf : MSF M Ev ()
-msf = switchE (arr waitForAjax) doCycle >>> innerHtml out
+msf : (String -> JSIO ()) -> MSF M Ev ()
+msf get = switchE (arrM waitForAjax) doCycle >>> innerHtml out
 
-  where waitForAjax : Ev -> Either (List1 String) String
-        waitForAjax Click     = Right "No data loaded yet!"
-        waitForAjax (Ajax ss) = Left ss
+  where waitForAjax : Ev -> M (Either (List1 String) String)
+        waitForAjax Click     = pure $ Right "No data loaded yet!"
+        waitForAjax Init      = fetch get $> Right "Request sent."
+        waitForAjax (Ajax ss) = pure $ Left ss
 
-        -- We cycle through the strings we got from the
-        -- ajax call. This will be the route the event network
-        -- takes as soon as we recieved the ajax call. We therefore
-        -- delay this by one even, printing an info that the
-        -- data has been loaded, before starting the cycling.
         doCycle : List1 String -> MSF M Ev String
         doCycle (h ::: t) =
           cycle (h :: t) >>> iPre "Data loaded!"
@@ -107,15 +92,7 @@ ui = do
   innerHtmlAt contentDiv content
   h <- handler <$> env
 
-  -- this simulates an ajax call. It will fire 5 seconds after
-  -- the UI has been setup.
-  --
-  -- It is also possible to setup such delayed computations
-  -- as part of an event sink (data output). This is what I did
-  -- in the first version of the example.
-  fetch (\foobar => h foobar)
-  -- setTimeout 5000 (h . Ajax $ "Hello" ::: ["World"])
-  pure(msf, pure ())
+  pure(msf $ \s => h (Ajax $ split (',' ==) s), pure ())
 
 main : IO ()
-main = runJS . ignore $ reactimateDom "somePrefix" ui
+main = runJS . ignore $ reactimateDomIni Init "somePrefix" ui
