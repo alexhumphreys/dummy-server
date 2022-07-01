@@ -33,18 +33,18 @@ record Todo where
 -- I set a timeout once the request has been received to make
 -- it clearer how the UI behaves until then.
 %foreign """
-browser:lambda:(h,w,x,y)=>{
-  fetch('https://jsonplaceholder.typicode.com/todos')
+browser:lambda:(url,h,w,x,y)=>{
+  fetch(url)
     .then(response => response.json())
     .then(json => {
       setTimeout(() => {h(JSON.stringify(json))(w);}, 5000);
     })
 }
 """
-prim__fetch : (String -> IO ()) -> PrimIO ()
+prim__fetch : String -> (String -> IO ()) -> PrimIO ()
 
-fetch : HasIO io => (String -> JSIO ()) -> io ()
-fetch run = primIO $ prim__fetch (runJS . run)
+fetch : HasIO io => String -> (String -> JSIO ()) -> io ()
+fetch url run = primIO $ prim__fetch url (runJS . run)
 
 -- wait n milliseconds before running the given action
 %foreign "browser:lambda:(n,h,w)=>setTimeout(() => h(w),n)"
@@ -70,6 +70,9 @@ out = Id Div "somePrefix_out"
 listTodoDiv : ElemRef HTMLDivElement
 listTodoDiv = Id Div "somePrefix_listTodo"
 
+selectedTodoDiv : ElemRef HTMLDivElement
+selectedTodoDiv = Id Div "somePrefix_selectedTodo"
+
 btn : ElemRef HTMLButtonElement
 btn = Id Button "my_button"
 
@@ -79,7 +82,12 @@ btn = Id Button "my_button"
 |||
 ||| In addition, we define an `Init` event, which is fired after
 ||| the UI has been setup. This will start the ajax request.
-data Ev = Ajax (List Todo) | SelectedTodo (Nat) | Click | Init | Err (String)
+data Ev = ListTodo (List Todo) | SelectedTodo (Nat) | Click | Init | Err (String)
+
+selectedTodo : Todo -> Node Ev
+selectedTodo x =
+  let todoId = Main.Todo.id x in
+    div [] [Text $ show $ todoId, Text $ title x, Text "do GET `/posts/\{show todoId}/comments` here"]
 
 todoItemRef : Nat -> ElemRef Div
 todoItemRef n = Id Div "todoItem\{show n}"
@@ -87,7 +95,7 @@ todoItemRef n = Id Div "todoItem\{show n}"
 todoItem : Todo -> Node Ev
 todoItem x =
   let todoId = Main.Todo.id x in
-  div [ref $ todoItemRef todoId ] [Text $ show $ todoId, Text $ title x]
+  div [ref $ todoItemRef todoId, onClick $ SelectedTodo todoId] [Text $ show $ todoId, Text $ title x]
 
 listTodos : List Todo -> Node Ev
 listTodos xs =
@@ -99,6 +107,7 @@ content =
     [ div [] ["content2"]
     , div [ref out] []
     , div [ref listTodoDiv] []
+    , div [ref selectedTodoDiv] []
     , button [ ref btn, onClick Click] [ "Click me!" ]
     ]
 
@@ -124,10 +133,10 @@ msf get = switchE (arrM waitForAjax) doCycle >>> innerHtml out
 
   where waitForAjax : Ev -> M (Either (List Todo) String)
         waitForAjax Click     = pure $ Right "No data loaded yet!"
-        waitForAjax Init      = fetch get $> Right "Request sent."
-        waitForAjax (Ajax ss) = pure $ Left ss
+        waitForAjax Init      = fetch "https://jsonplaceholder.typicode.com/todos" get $> Right "Request sent."
+        waitForAjax (ListTodo ss) = pure $ Left ss
         waitForAjax (Err st) = pure $ Right st
-        waitForAjax (SelectedTodo x) = pure $ Right $ "Selected Todo: \{show x}"
+        waitForAjax (SelectedTodo x) = fetch "https://jsonplaceholder.typicode.com/todos/\{show x}" get $> Right "Requesting Todo \{show x}"
 
         doCycle : List Todo -> MSF M Ev String
         doCycle ts = const (show ts) >>> iPre "Data loaded!"
@@ -136,7 +145,7 @@ parseResponse : String -> Ev
 parseResponse str =
   case decode {a=List Todo} str of
        (Left x) => Err "failed to parse json as Todo: \{str}"
-       (Right x) => Ajax x
+       (Right x) => ListTodo x
 
 ui : M (MSF M Ev (), JSIO ())
 ui = do
