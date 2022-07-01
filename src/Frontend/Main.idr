@@ -97,10 +97,6 @@ todoItem x =
   let todoId = Main.Todo.id x in
   div [ref $ todoItemRef todoId, onClick $ SelectedTodo todoId] [Text $ show $ todoId, Text $ title x]
 
-listTodos : List Todo -> Node Ev
-listTodos xs =
-  div [] $ map todoItem xs
-
 content : Node Ev
 content =
   div []
@@ -154,5 +150,111 @@ ui = do
 
   pure(msf $ \s => h (parseResponse s), pure ())
 
+record TodoDetails where
+  constructor MkD
+  id   : Nat
+  task : String
+  desc : String
+
+data Ev' : Type where
+  ||| Initial event
+  Init'     : Ev'
+
+  ||| An ajax call returned a list of todos
+  ListLoaded : List Todo -> Ev'
+
+  ||| An ajax call returned a list of todos
+  SingleLoaded : TodoDetails -> Ev'
+
+  ||| A single item in the todo list was selected
+  Selected' : Nat -> Ev'
+
+  ||| Error
+  Err' : String -> Ev'
+
+%runElab derive "Ev'" [Generic]
+
+todoItem' : Todo -> Node Ev'
+todoItem' x =
+  let todoId = Main.Todo.id x in
+  div [ref $ todoItemRef todoId, onClick $ Selected' todoId] [Text $ show $ todoId, Text $ title x]
+
+listTodos' : List Todo -> Node Ev'
+listTodos' xs =
+  div [] $ map todoItem' xs
+
+M' : Type -> Type
+M' = DomIO Ev' JSIO
+
+-- ui : M (MSF M Ev (), JSIO ())
+-- ui = do
+  -- innerHtmlAt contentDiv content
+  -- h <- handler <$> env
+  -- pure(msf $ \s => h (parseResponse s), pure ())
+
+parseResponse' : String -> Ev'
+parseResponse' str =
+  case decode {a=List Todo} str of
+       (Left x) => Err' "failed to parse json as Todo: \{str}"
+       (Right x) => ListLoaded x
+
+-- below, I define some dummy MSFs for handling each of the
+-- events in question:
+onInit : MSF M' (NP I []) ()
+onInit = arrM go
+-- invoke `get` with the correct URL
+where
+  go : x -> M' ()
+  go _ = do
+    h <- handler <$> env
+    fetch "https://jsonplaceholder.typicode.com/todos" $ \s => h (parseResponse' s)
+    pure ()
+
+-- prints the list to the UI.
+-- this requires a call to `innerHtmlAt` to set up the necessary event handlers
+onListLoaded : MSF M' (NP I [List Todo]) ()
+onListLoaded = arrM $ (\[ts] => innerHtmlAt listTodoDiv $ listTodos' $ take 10 ts)
+
+onSingleLoaded : MSF M' (NP I [TodoDetails]) ()
+onSingleLoaded = Const ()
+-- onSingleLoaded = arrM $ \[t] => innerHtmlAt selectedTodoDiv ...
+
+onSelected : MSF M' (NP I [Nat]) ()
+onSelected = arrM $ (\[n] => innerHtmlAt selectedTodoDiv $ selectedTodo' (MkTodo n n "dummy" False))
+where
+  selectedTodo' : Todo -> Node Ev'
+  selectedTodo' x =
+    let todoId = Main.Todo.id x in
+      div [] [Text $ show $ todoId, Text $ title x, Text "do GET `/posts/\{show todoId}/comments` here"]
+-- onSelected = arrM $ \[d] => -- invoke `get` with the correct URL
+
+onErr : MSF M' (NP I [String]) ()
+onErr = Const ()
+-- onErr = arrM $ \[s] => -- print error message to a UI element
+
+sf : MSF M' Ev' ()
+sf = toI . unSOP . from ^>> collect [ onInit
+                                    , onListLoaded
+                                    , onSingleLoaded
+                                    , onSelected
+                                    , onErr
+                                    ]
+
+content' : Node Ev'
+content' =
+  div []
+    [ div [] ["content2"]
+    , div [ref out] []
+    , div [ref listTodoDiv] []
+    , div [ref selectedTodoDiv] []
+    -- , button [ ref btn, onClick Click] [ "Click me!" ]
+    ]
+
+ui' : M' (MSF M' Ev' (), JSIO ())
+ui' = do
+  innerHtmlAt contentDiv content'
+
+  pure(sf, pure ())
+
 main : IO ()
-main = runJS . ignore $ reactimateDomIni Init "somePrefix" ui
+main = runJS . ignore $ reactimateDomIni Init' "somePrefix" ui'
