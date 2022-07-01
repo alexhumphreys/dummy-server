@@ -34,7 +34,7 @@ record Todo where
 -- it clearer how the UI behaves until then.
 %foreign """
 browser:lambda:(h,w,x,y)=>{
-  fetch('https://jsonplaceholder.typicode.com/todos/1')
+  fetch('https://jsonplaceholder.typicode.com/todos')
     .then(response => response.json())
     .then(json => {
       setTimeout(() => {h(JSON.stringify(json))(w);}, 5000);
@@ -67,6 +67,9 @@ contentDiv = Id Body "content"
 out : ElemRef HTMLDivElement
 out = Id Div "somePrefix_out"
 
+listTodoDiv : ElemRef HTMLDivElement
+listTodoDiv = Id Div "somePrefix_listTodo"
+
 btn : ElemRef HTMLButtonElement
 btn = Id Button "my_button"
 
@@ -76,13 +79,26 @@ btn = Id Button "my_button"
 |||
 ||| In addition, we define an `Init` event, which is fired after
 ||| the UI has been setup. This will start the ajax request.
-data Ev = Ajax (Todo) | Click | Init
+data Ev = Ajax (List Todo) | SelectedTodo (Nat) | Click | Init | Err (String)
+
+todoItemRef : Nat -> ElemRef Div
+todoItemRef n = Id Div "todoItem\{show n}"
+
+todoItem : Todo -> Node Ev
+todoItem x =
+  let todoId = Main.Todo.id x in
+  div [ref $ todoItemRef todoId ] [Text $ show $ todoId, Text $ title x]
+
+listTodos : List Todo -> Node Ev
+listTodos xs =
+  div [] $ map todoItem xs
 
 content : Node Ev
 content =
   div []
     [ div [] ["content2"]
     , div [ref out] []
+    , div [ref listTodoDiv] []
     , button [ ref btn, onClick Click] [ "Click me!" ]
     ]
 
@@ -99,29 +115,35 @@ allRules = fastUnlines . map Text.CSS.Render.render
 M : Type -> Type
 M = DomIO Ev JSIO
 
+go : Either String (List Todo) -> MSF M String ()
+go (Right x) = const (show x) >>> innerHtml listTodoDiv
+go (Left x) = const x >>> innerHtml out
+
 msf : (String -> JSIO ()) -> MSF M Ev ()
 msf get = switchE (arrM waitForAjax) doCycle >>> innerHtml out
 
-  where waitForAjax : Ev -> M (Either (Todo) String)
+  where waitForAjax : Ev -> M (Either (List Todo) String)
         waitForAjax Click     = pure $ Right "No data loaded yet!"
         waitForAjax Init      = fetch get $> Right "Request sent."
         waitForAjax (Ajax ss) = pure $ Left ss
+        waitForAjax (Err st) = pure $ Right st
+        waitForAjax (SelectedTodo x) = pure $ Right $ "Selected Todo: \{show x}"
 
-        doCycle : Todo -> MSF M Ev String
-        doCycle t = const (title t) >>> iPre "Data loaded!"
+        doCycle : List Todo -> MSF M Ev String
+        doCycle ts = const (show ts) >>> iPre "Data loaded!"
 
-parseResponse : String -> Todo
+parseResponse : String -> Ev
 parseResponse str =
-  case decode {a=Todo} str of
-       (Left x) => MkTodo 0 0 "failed to parse: \{str}" False
-       (Right x) => x
+  case decode {a=List Todo} str of
+       (Left x) => Err "failed to parse json as Todo: \{str}"
+       (Right x) => Ajax x
 
 ui : M (MSF M Ev (), JSIO ())
 ui = do
   innerHtmlAt contentDiv content
   h <- handler <$> env
 
-  pure(msf $ \s => h (Ajax $ parseResponse s), pure ())
+  pure(msf $ \s => h (parseResponse s), pure ())
 
 main : IO ()
 main = runJS . ignore $ reactimateDomIni Init "somePrefix" ui

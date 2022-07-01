@@ -46,3 +46,6 @@ frontend:
 	pack build ./src/Frontend/frontend.ipkg
 	mkdir -p static/js
 	cp ./src/Frontend/build/exec/frontend.js static/js/frontend.js
+
+open-frontend:
+	open ./static/index.html
