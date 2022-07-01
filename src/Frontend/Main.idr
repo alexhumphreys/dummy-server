@@ -37,7 +37,7 @@ browser:lambda:(url,h,w,x,y)=>{
   fetch(url)
     .then(response => response.json())
     .then(json => {
-      setTimeout(() => {h(JSON.stringify(json))(w);}, 5000);
+      setTimeout(() => {h(JSON.stringify(json))(w);}, 3000);
     })
 }
 """
@@ -64,14 +64,20 @@ public export
 contentDiv : ElemRef HTMLBodyElement
 contentDiv = Id Body "content"
 
+aPrefix : String
+aPrefix = "somePrefix"
+
 out : ElemRef HTMLDivElement
-out = Id Div "somePrefix_out"
+out = Id Div "\{aPrefix}_out"
+
+errorDiv : ElemRef HTMLDivElement
+errorDiv = Id Div "\{aPrefix}_errorDiv"
 
 listTodoDiv : ElemRef HTMLDivElement
-listTodoDiv = Id Div "somePrefix_listTodo"
+listTodoDiv = Id Div "\{aPrefix}_listTodo"
 
 selectedTodoDiv : ElemRef HTMLDivElement
-selectedTodoDiv = Id Div "somePrefix_selectedTodo"
+selectedTodoDiv = Id Div "\{aPrefix}_selectedTodo"
 
 btn : ElemRef HTMLButtonElement
 btn = Id Button "my_button"
@@ -102,6 +108,7 @@ content =
   div []
     [ div [] ["content2"]
     , div [ref out] []
+    , div [ref errorDiv] []
     , div [ref listTodoDiv] []
     , div [ref selectedTodoDiv] []
     , button [ ref btn, onClick Click] [ "Click me!" ]
@@ -229,7 +236,10 @@ where
 -- onSelected = arrM $ \[d] => -- invoke `get` with the correct URL
 
 onErr : MSF M' (NP I [String]) ()
-onErr = Const ()
+onErr = arrM $ \[s] => innerHtmlAt errorDiv $ renderErr' s
+where
+  renderErr' : String -> Node Ev'
+  renderErr' x = div [] [Text x]
 -- onErr = arrM $ \[s] => -- print error message to a UI element
 
 sf : MSF M' Ev' ()
@@ -245,6 +255,7 @@ content' =
   div []
     [ div [] ["content2"]
     , div [ref out] []
+    , div [ref errorDiv] []
     , div [ref listTodoDiv] []
     , div [ref selectedTodoDiv] []
     -- , button [ ref btn, onClick Click] [ "Click me!" ]
@@ -257,4 +268,4 @@ ui' = do
   pure(sf, pure ())
 
 main : IO ()
-main = runJS . ignore $ reactimateDomIni Init' "somePrefix" ui'
+main = runJS . ignore $ reactimateDomIni Init' aPrefix ui'
