@@ -248,7 +248,7 @@ where
 onSingleLoaded : MSF M' (NP I [Todo]) ()
 onSingleLoaded = arrM $ (\[t] => do
   innerHtmlAt selectedTodoDiv $ selectedTodo' t
-  fetchParseEvent {a=User} "https://jsonplaceholder.typicode.com/user/\{show $ Main.Todo.userId t}" UserLoaded)
+  fetchParseEvent {a=User} "https://jsonplaceholder.typicode.com/users/\{show $ Main.Todo.userId t}" UserLoaded)
 where
   selectedTodo' : Todo -> Node Ev'
   selectedTodo' x =
