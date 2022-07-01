@@ -32,6 +32,7 @@ record Todo where
 
 -- I set a timeout once the request has been received to make
 -- it clearer how the UI behaves until then.
+-- TODO should pass an "on error" function here, then have a function print that output
 %foreign """
 browser:lambda:(url,h,w,x,y)=>{
   fetch(url)
@@ -78,6 +79,9 @@ listTodoDiv = Id Div "\{aPrefix}_listTodo"
 
 selectedTodoDiv : ElemRef HTMLDivElement
 selectedTodoDiv = Id Div "\{aPrefix}_selectedTodo"
+
+userDiv : ElemRef HTMLDivElement
+userDiv = Id Div "\{aPrefix}_user"
 
 btn : ElemRef HTMLButtonElement
 btn = Id Button "my_button"
@@ -157,11 +161,14 @@ ui = do
 
   pure(msf $ \s => h (parseResponse s), pure ())
 
-record TodoDetails where
-  constructor MkD
+record User where
+  constructor MkUser
   id   : Nat
-  task : String
-  desc : String
+  name : String
+  username : String
+  email : String
+
+%runElab derive "User" [Generic, Meta, Show, Eq, RecordToJSON, RecordFromJSON]
 
 data Ev' : Type where
   ||| Initial event
@@ -171,7 +178,10 @@ data Ev' : Type where
   ListLoaded : List Todo -> Ev'
 
   ||| An ajax call returned a list of todos
-  SingleLoaded : TodoDetails -> Ev'
+  SingleLoaded : Todo -> Ev'
+
+  ||| An ajax call returned a user
+  UserLoaded : User -> Ev'
 
   ||| A single item in the todo list was selected
   Selected' : Nat -> Ev'
@@ -205,34 +215,52 @@ parseResponse' str =
        (Left x) => Err' "failed to parse json as Todo: \{str}"
        (Right x) => ListLoaded x
 
+fetchParseEvent : FromJSON a => String -> (a -> Ev') -> M' ()
+fetchParseEvent url e = do
+    h <- handler <$> env
+    fetch url $ \s => h (parseType s)
+    pure ()
+where
+  parseType : String -> Ev'
+  parseType str =
+    case decode {a=a} str of
+         (Left x) => Err' "failed to parse json: \{str}"
+         (Right x) => e x
+
 -- below, I define some dummy MSFs for handling each of the
 -- events in question:
 onInit : MSF M' (NP I []) ()
-onInit = arrM go
+onInit = arrM $ \_ => fetchParseEvent {a=List Todo} "https://jsonplaceholder.typicode.com/todos" ListLoaded
 -- invoke `get` with the correct URL
-where
-  go : x -> M' ()
-  go _ = do
-    h <- handler <$> env
-    fetch "https://jsonplaceholder.typicode.com/todos" $ \s => h (parseResponse' s)
-    pure ()
 
 -- prints the list to the UI.
 -- this requires a call to `innerHtmlAt` to set up the necessary event handlers
 onListLoaded : MSF M' (NP I [List Todo]) ()
 onListLoaded = arrM $ (\[ts] => innerHtmlAt listTodoDiv $ listTodos' $ take 10 ts)
 
-onSingleLoaded : MSF M' (NP I [TodoDetails]) ()
-onSingleLoaded = Const ()
--- onSingleLoaded = arrM $ \[t] => innerHtmlAt selectedTodoDiv ...
+onUserLoaded : MSF M' (NP I [User]) ()
+onUserLoaded = arrM $ (\[u] => innerHtmlAt userDiv $ renderUser u)
+where
+  renderUser : User -> Node Ev'
+  renderUser u = div []
+    [Text $ User.name u, Text $ username u, Text $ email u]
 
-onSelected : MSF M' (NP I [Nat]) ()
-onSelected = arrM $ (\[n] => innerHtmlAt selectedTodoDiv $ selectedTodo' (MkTodo n n "dummy" False))
+onSingleLoaded : MSF M' (NP I [Todo]) ()
+onSingleLoaded = arrM $ (\[t] => do
+  innerHtmlAt selectedTodoDiv $ selectedTodo' t
+  fetchParseEvent {a=User} "https://jsonplaceholder.typicode.com/user/\{show $ Main.Todo.userId t}" UserLoaded)
 where
   selectedTodo' : Todo -> Node Ev'
   selectedTodo' x =
     let todoId = Main.Todo.id x in
-      div [] [Text $ show $ todoId, Text $ title x, Text "do GET `/posts/\{show todoId}/comments` here"]
+      div []
+        [ Text $ show $ todoId, Text $ title x, Text "Selected!"
+        , div [ref userDiv] []
+        ]
+-- onSingleLoaded = arrM $ \[t] => innerHtmlAt selectedTodoDiv ...
+
+onSelected : MSF M' (NP I [Nat]) ()
+onSelected = arrM $ \[n] => fetchParseEvent {a=Todo} "https://jsonplaceholder.typicode.com/todos/\{show n}" SingleLoaded
 -- onSelected = arrM $ \[d] => -- invoke `get` with the correct URL
 
 onErr : MSF M' (NP I [String]) ()
@@ -246,6 +274,7 @@ sf : MSF M' Ev' ()
 sf = toI . unSOP . from ^>> collect [ onInit
                                     , onListLoaded
                                     , onSingleLoaded
+                                    , onUserLoaded
                                     , onSelected
                                     , onErr
                                     ]
