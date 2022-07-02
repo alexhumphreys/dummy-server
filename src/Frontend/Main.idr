@@ -63,7 +63,10 @@ browser:lambda:(url,h,w,e,y)=>{
     .then(json => {
       setTimeout(() => {h(JSON.stringify(json))(e);}, 3000);
     })
-    .catch(error => console.error(error))
+    .catch(error => {
+      w(error.message)(e)
+      console.error(error)
+    })
 }
 """
 prim__fetch : String -> (String -> IO ()) -> (String -> IO ()) -> PrimIO ()
