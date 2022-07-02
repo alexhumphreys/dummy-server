@@ -107,6 +107,9 @@ listTodoDiv = Id Div "\{aPrefix}_listTodo"
 selectedTodoDiv : ElemRef HTMLDivElement
 selectedTodoDiv = Id Div "\{aPrefix}_selectedTodo"
 
+createTodoDiv : ElemRef HTMLDivElement
+createTodoDiv = Id Div "\{aPrefix}_createTodo"
+
 userDiv : ElemRef HTMLDivElement
 userDiv = Id Div "\{aPrefix}_user"
 
@@ -119,20 +122,9 @@ btn = Id Button "my_button"
 |||
 ||| In addition, we define an `Init` event, which is fired after
 ||| the UI has been setup. This will start the ajax request.
-data Ev = ListTodo (List Todo) | SelectedTodo (Nat) | Click | Init | Err (String)
-
-selectedTodo : Todo -> Node Ev
-selectedTodo x =
-  let todoId = Main.Todo.id x in
-    div [] [Text $ show $ todoId, Text $ title x, Text "do GET `/posts/\{show todoId}/comments` here"]
 
 todoItemRef : Nat -> ElemRef Div
 todoItemRef n = Id Div "todoItem\{show n}"
-
-todoItem : Todo -> Node Ev
-todoItem x =
-  let todoId = Main.Todo.id x in
-  div [ref $ todoItemRef todoId, onClick $ SelectedTodo todoId] [Text $ show $ todoId, Text $ title x]
 
 coreCSS : List (Rule 1)
 coreCSS =
@@ -143,9 +135,6 @@ coreCSS =
 allRules : String
 allRules = fastUnlines . map Text.CSS.Render.render
          $ coreCSS
-
-M : Type -> Type
-M = DomIO Ev JSIO
 
 record User where
   constructor MkUser
@@ -171,6 +160,9 @@ data Ev' : Type where
 
   ||| A single item in the todo list was selected
   Selected' : Nat -> Ev'
+
+  ||| A single item in the todo list was selected
+  ClickAdd' : Ev'
 
   ||| Error
   Err' : String -> Ev'
@@ -235,7 +227,7 @@ onInit = arrM $ \_ => do
 onListLoaded : MSF M' (NP I [List Todo]) ()
 onListLoaded = do
   arrM $ \[ts] => do
-    innerHtmlAt listTodoDiv $ listTodos' $ take 10 ts
+    innerHtmlAt listTodoDiv $ listTodos' $ take 21 ts
 
 onUserLoaded : MSF M' (NP I [User]) ()
 onUserLoaded = arrM $ (\[u] => innerHtmlAt userDiv $ renderUser u)
@@ -269,12 +261,48 @@ where
   renderErr' x = div [] [Text x]
 -- onErr = arrM $ \[s] => -- print error message to a UI element
 
+{-
+div [ class ballsContent ]
+    [ lbl "Number of balls:" lblCount
+    , input [ ref txtCount
+            , onInput (const NumIn)
+            , onEnterDown Run
+            , class widget
+            , placeholder "Range: [1,1000]"
+            ] []
+    , button [ref btnRun, onClick Run, classes [widget,btn]] ["Run"]
+    , div [ref log] []
+    , canvas [ref out, width wcanvas, height wcanvas] []
+    ]
+    -}
+onClickAdd : MSF M' (NP I []) ()
+onClickAdd = arrM $ \_ => innerHtmlAt createTodoDiv renderForm
+where
+  btnCreate : ElemRef HTMLButtonElement
+  btnCreate = Id Button "\{aPrefix}_createTodo"
+  txtTitle : ElemRef HTMLInputElement
+  txtTitle = Id Input "\{aPrefix}_newTitle"
+  lbl : (text: String) -> (class : String) -> Node ev
+  lbl txt cl = label [] [Text txt]
+
+  renderForm : Node Ev'
+  renderForm =
+    div []
+      [ lbl "Title:" ""
+      , input [ ref txtTitle
+              , placeholder "some title"
+              ] []
+      , button [ref btnCreate] ["Create Todo"]
+      ]
+-- invoke `get` with the correct URL
+
 sf : MSF M' Ev' ()
 sf = toI . unSOP . from ^>> collect [ onInit
                                     , onListLoaded
                                     , onSingleLoaded
                                     , onUserLoaded
                                     , onSelected
+                                    , onClickAdd
                                     , onErr
                                     ]
 
@@ -286,7 +314,8 @@ content' =
     , div [ref errorDiv] []
     , div [ref listTodoDiv] []
     , div [ref selectedTodoDiv] []
-    -- , button [ ref btn, onClick Click] [ "Click me!" ]
+    , div [ref createTodoDiv] []
+    , button [ ref btn, onClick ClickAdd'] [ "Add todo" ]
     ]
 
 ui' : M' (MSF M' Ev' (), JSIO ())
