@@ -195,12 +195,15 @@ parseResponse' str =
        (Left x) => Err' "failed to parse json as Todo: \{str}"
        (Right x) => ListLoaded x
 
+fireEv' : Nat -> Ev' -> M' ()
+fireEv' n ev = do
+  h <- handler <$> env
+  setTimeout n (h ev)
+  pure ()
+
 ||| fire off random Ev'
 fireEv : Ev' -> M' ()
-fireEv ev = do
-  h <- handler <$> env
-  setTimeout 0 (h ev)
-  pure ()
+fireEv ev = fireEv' 0 ev
 
 fetchParseEvent : FromJSON a => String -> (a -> Ev') -> M' ()
 fetchParseEvent url ev = do
@@ -223,13 +226,18 @@ where
 -- below, I define some dummy MSFs for handling each of the
 -- events in question:
 onInit : MSF M' (NP I []) ()
-onInit = arrM $ \_ => fetchParseEvent {a=List Todo} "https://jsonplaceholder.typicode.com/todos" ListLoaded
+onInit = arrM $ \_ => do
+  fetchParseEvent {a=List Todo} "https://jsonplaceholder.typicode.com/todos" ListLoaded
+  fireEv' 1000 Init'
 -- invoke `get` with the correct URL
 
 -- prints the list to the UI.
 -- this requires a call to `innerHtmlAt` to set up the necessary event handlers
 onListLoaded : MSF M' (NP I [List Todo]) ()
-onListLoaded = arrM $ (\[ts] => innerHtmlAt listTodoDiv $ listTodos' $ take 10 ts)
+onListLoaded = do
+  arrM $ (\[ts] => do
+    innerHtmlAt listTodoDiv $ listTodos' $ take 10 ts
+    )
 
 onUserLoaded : MSF M' (NP I [User]) ()
 onUserLoaded = arrM $ (\[u] => innerHtmlAt userDiv $ renderUser u)
