@@ -61,7 +61,7 @@ browser:lambda:(url,h,w,e,y)=>{
        }
     })
     .then(json => {
-      setTimeout(() => {h(JSON.stringify(json))(e);}, 3000);
+      h(JSON.stringify(json))(e);
     })
     .catch(error => {
       w(error.message)(e)
@@ -228,16 +228,14 @@ where
 onInit : MSF M' (NP I []) ()
 onInit = arrM $ \_ => do
   fetchParseEvent {a=List Todo} "https://jsonplaceholder.typicode.com/todos" ListLoaded
-  fireEv' 1000 Init'
 -- invoke `get` with the correct URL
 
 -- prints the list to the UI.
 -- this requires a call to `innerHtmlAt` to set up the necessary event handlers
 onListLoaded : MSF M' (NP I [List Todo]) ()
 onListLoaded = do
-  arrM $ (\[ts] => do
+  arrM $ \[ts] => do
     innerHtmlAt listTodoDiv $ listTodos' $ take 10 ts
-    )
 
 onUserLoaded : MSF M' (NP I [User]) ()
 onUserLoaded = arrM $ (\[u] => innerHtmlAt userDiv $ renderUser u)
