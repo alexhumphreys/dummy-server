@@ -21,6 +21,16 @@ import JSON
 
 %language ElabReflection
 
+record FetchResponse where
+  constructor MkFetchResponse
+  url : Nat
+  status : Nat
+  statusText : String
+  redirected : Bool
+  ok : Bool
+
+%runElab derive "FetchResponse" [Generic, Meta, Show, RecordToJSON, RecordFromJSON]
+
 record Todo where
   constructor MkTodo
   userId : Nat
@@ -34,18 +44,32 @@ record Todo where
 -- it clearer how the UI behaves until then.
 -- TODO should pass an "on error" function here, then have a function print that output
 %foreign """
-browser:lambda:(url,h,w,x,y)=>{
+browser:lambda:(url,h,w,e,y)=>{
   fetch(url)
-    .then(response => response.json())
-    .then(json => {
-      setTimeout(() => {h(JSON.stringify(json))(w);}, 3000);
+    .then(response => {
+       if (!response.ok) {
+        w(JSON.stringify({
+          url: response.url,
+          status: response.status,
+          statusText: response.statusText,
+          redirected: response.redirected,
+          ok: response.ok,
+        }))(e);
+        throw new Error('Network response was not OK');
+       } else {
+         return response.json();
+       }
     })
+    .then(json => {
+      setTimeout(() => {h(JSON.stringify(json))(e);}, 3000);
+    })
+    .catch(error => console.error(error))
 }
 """
-prim__fetch : String -> (String -> IO ()) -> PrimIO ()
+prim__fetch : String -> (String -> IO ()) -> (String -> IO ()) -> PrimIO ()
 
-fetch : HasIO io => String -> (String -> JSIO ()) -> io ()
-fetch url run = primIO $ prim__fetch url (runJS . run)
+fetch : HasIO io => String -> (String -> JSIO ()) -> (String -> JSIO ()) -> io ()
+fetch url run err = primIO $ prim__fetch url (runJS . run) (runJS . err)
 
 -- wait n milliseconds before running the given action
 %foreign "browser:lambda:(n,h,w)=>setTimeout(() => h(w),n)"
@@ -107,17 +131,6 @@ todoItem x =
   let todoId = Main.Todo.id x in
   div [ref $ todoItemRef todoId, onClick $ SelectedTodo todoId] [Text $ show $ todoId, Text $ title x]
 
-content : Node Ev
-content =
-  div []
-    [ div [] ["content2"]
-    , div [ref out] []
-    , div [ref errorDiv] []
-    , div [ref listTodoDiv] []
-    , div [ref selectedTodoDiv] []
-    , button [ ref btn, onClick Click] [ "Click me!" ]
-    ]
-
 coreCSS : List (Rule 1)
 coreCSS =
   [ elem Html !!
@@ -130,36 +143,6 @@ allRules = fastUnlines . map Text.CSS.Render.render
 
 M : Type -> Type
 M = DomIO Ev JSIO
-
-go : Either String (List Todo) -> MSF M String ()
-go (Right x) = const (show x) >>> innerHtml listTodoDiv
-go (Left x) = const x >>> innerHtml out
-
-msf : (String -> JSIO ()) -> MSF M Ev ()
-msf get = switchE (arrM waitForAjax) doCycle >>> innerHtml out
-
-  where waitForAjax : Ev -> M (Either (List Todo) String)
-        waitForAjax Click     = pure $ Right "No data loaded yet!"
-        waitForAjax Init      = fetch "https://jsonplaceholder.typicode.com/todos" get $> Right "Request sent."
-        waitForAjax (ListTodo ss) = pure $ Left ss
-        waitForAjax (Err st) = pure $ Right st
-        waitForAjax (SelectedTodo x) = fetch "https://jsonplaceholder.typicode.com/todos/\{show x}" get $> Right "Requesting Todo \{show x}"
-
-        doCycle : List Todo -> MSF M Ev String
-        doCycle ts = const (show ts) >>> iPre "Data loaded!"
-
-parseResponse : String -> Ev
-parseResponse str =
-  case decode {a=List Todo} str of
-       (Left x) => Err "failed to parse json as Todo: \{str}"
-       (Right x) => ListTodo x
-
-ui : M (MSF M Ev (), JSIO ())
-ui = do
-  innerHtmlAt contentDiv content
-  h <- handler <$> env
-
-  pure(msf $ \s => h (parseResponse s), pure ())
 
 record User where
   constructor MkUser
@@ -203,29 +186,36 @@ listTodos' xs =
 M' : Type -> Type
 M' = DomIO Ev' JSIO
 
--- ui : M (MSF M Ev (), JSIO ())
--- ui = do
-  -- innerHtmlAt contentDiv content
-  -- h <- handler <$> env
-  -- pure(msf $ \s => h (parseResponse s), pure ())
-
 parseResponse' : String -> Ev'
 parseResponse' str =
   case decode {a=List Todo} str of
        (Left x) => Err' "failed to parse json as Todo: \{str}"
        (Right x) => ListLoaded x
 
+||| fire off random Ev'
+fireEv : Ev' -> M' ()
+fireEv ev = do
+  h <- handler <$> env
+  setTimeout 0 (h ev)
+  pure ()
+
 fetchParseEvent : FromJSON a => String -> (a -> Ev') -> M' ()
-fetchParseEvent url e = do
+fetchParseEvent url ev = do
     h <- handler <$> env
-    fetch url $ \s => h (parseType s)
+    fetch url (\s => h (parseType s)) (\e => h (handleError e))
     pure ()
 where
+  handleError : String -> Ev'
+  handleError str =
+    case decode {a=FetchResponse} str of
+         (Left x) =>  Err' "Fetch err: \{str}"
+         (Right x) => Err' "Fetch err: \{show x}"
+
   parseType : String -> Ev'
   parseType str =
     case decode {a=a} str of
          (Left x) => Err' "failed to parse json: \{str}"
-         (Right x) => e x
+         (Right x) => ev x
 
 -- below, I define some dummy MSFs for handling each of the
 -- events in question:
